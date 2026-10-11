@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_URL = "http://127.0.0.1:8000";
 
 function TaskItem(props) {
   return (
@@ -7,25 +9,54 @@ function TaskItem(props) {
       <span style={{ textDecoration: props.done ? "line-through" : "none" }}>
         {props.title}
       </span>
+      <button onClick={props.onDelete}>Delete</button>
     </li>
   );
 }
 
 function App() {
-  const [tasks, setTasks] = useState([
-    { id: 1, title: "Learn Git", done: true },
-    { id: 2, title: "Build an API", done: false },
-  ]);
+  const [tasks, setTasks] = useState([]);
   const [newTitle, setNewTitle] = useState("");
+
+  useEffect(() => {
+    fetch(`${API_URL}/tasks`)
+      .then((res) => res.json())
+      .then((data) => setTasks(data));
+  }, []);
 
   function addTask() {
     if (newTitle.trim() === "") return;
-    setTasks([...tasks, { id: Date.now(), title: newTitle, done: false }]);
-    setNewTitle("");
+
+    fetch(`${API_URL}/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newTitle }),
+    })
+      .then((res) => res.json())
+      .then((createdTask) => {
+        setTasks([...tasks, createdTask]);
+        setNewTitle("");
+      });
   }
 
-  function toggleTask(id) {
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  function toggleTask(task) {
+    fetch(`${API_URL}/tasks/${task.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: task.title, done: !task.done }),
+    })
+      .then((res) => res.json())
+      .then((updatedTask) => {
+        setTasks(tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      });
+  }
+
+  function deleteTask(id) {
+    fetch(`${API_URL}/tasks/${id}`, { method: "DELETE" }).then((res) => {
+      if (res.ok) {
+        setTasks(tasks.filter((t) => t.id !== id));
+      }
+    });
   }
 
   return (
@@ -43,7 +74,8 @@ function App() {
             key={t.id}
             title={t.title}
             done={t.done}
-            onToggle={() => toggleTask(t.id)}
+            onToggle={() => toggleTask(t)}
+            onDelete={() => deleteTask(t.id)}
           />
         ))}
       </ul>
